@@ -1,0 +1,122 @@
+import psutil
+import time
+import pandas as pd
+from datetime import datetime, timedelta
+from pynput import mouse, keyboard
+import json
+import threading
+from collections import defaultdict
+import win32gui
+
+class ComputerActivityMonitor:
+    def __init__(self):
+        self.activity_data = []
+        self.last_activity_time = time.time()
+        self.current_app = None
+        self.input_count = 0
+        self.last_app_switch_time = None
+        self.is_first_app = True
+
+    def start_watching(self):
+        '''启动观测'''
+        print('开始观测电脑使用行为...')
+
+    def start_app_monitor(self):
+        '''监控应用使用情况'''
+        def monitor_apps():
+            while True:
+                try:
+                    active_window = self.get_active_window()
+                    current_time = datetime.now()
+
+                    if active_window and active_window != self.current_app:
+                        if self.current_app:
+                            self.record_app_usage(self.current_app, current_time)
+                        
+                        self.current_app = active_window
+
+                        if self.is_first_app:
+                            self.last_app_switch_time = current_time
+                            self.is_first_app = False
+                        
+                        print(f"切换到：{active_window}")
+                    time.sleep(2) #每2秒检查一次
+                
+                except Exception as e:
+                    print(f"应用监控错误：{e}")
+                    time.sleep(5)
+        
+        thread = threading.Thread(target=monitor_apps, daemon=True)
+        thread.start()
+                    
+    def get_active_window(self):
+        '''获取当前活动窗口信息'''
+        # windows系统
+        window = win32gui.GetForegroundWindow()
+        window_title = win32gui.GetWindowText(window)
+        return window_title if window_title else 'Unknown'
+    
+    def record_app_usage(self, app_name, end_time):
+        '''记录应用使用情况'''
+        if self.last_app_switch_time is not None:
+            duration = (end_time - self.last_app_switch_time).total_seconds()
+            if duration > 1:
+                record = {
+                    'timestamp': self.last_app_switch_time.isoformat(),
+                    'duration_seconds': duration,
+                    'application': app_name,
+                    'activity_type': 'application_usage',
+                    'input_count': self.input_count
+                }
+                
+                self.activity_data.append(record)
+                self.input_count = 0
+
+        self.last_app_switch_time = end_time
+
+    def start_input_monitor(self):
+        '''监控键盘和鼠标的输入'''
+        def on_click(x,y,button,pressed):
+            if pressed:
+                self.last_activity_time = time.time()
+                self.input_count += 1
+        
+        def on_press(key):
+            self.last_activity_time = time.time()
+            self.input_count += 1
+
+        mouse_listener = mouse.Listener(on_click=on_click)
+        keyboard_listener = keyboard.Listener(on_press=on_press)
+
+        mouse_listener.start()
+        keyboard_listener.start()
+
+    def start_auto_save(self):
+        '''自动保存数据'''
+        def save_loop():
+            while True:
+                time.sleep(300) # 每5分钟
+                self.save_data()
+
+        thread = threading.Thread(target=save_loop, daemon=True)
+
+    def save_data(self):
+        """保存数据到文件"""
+        if self.activity_data:
+            df = pd.DataFrame(self.activity_data)
+            
+            # 按日期保存到不同的文件
+            today = datetime.now().strftime("%Y-%m-%d")
+            filename = f"computer_activity_{today}.csv"
+            
+            try:
+                # 如果文件已存在，追加数据
+                existing_df = pd.read_csv(filename)
+                combined_df = pd.concat([existing_df, df], ignore_index=True)
+                combined_df.to_csv(filename, index=False)
+            except FileNotFoundError:
+                # 文件不存在，创建新文件
+                df.to_csv(filename, index=False)
+            
+            print(f"数据已保存到 {filename}, 记录数: {len(df)}")
+            self.activity_data = []  # 清空已保存的数据
