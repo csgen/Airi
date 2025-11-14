@@ -7,6 +7,7 @@ import json
 import threading
 from collections import defaultdict
 import win32gui
+from pathlib import Path
 
 class ComputerActivityMonitor:
     def __init__(self):
@@ -17,9 +18,26 @@ class ComputerActivityMonitor:
         self.last_app_switch_time = None
         self.is_first_app = True
 
-    def start_watching(self):
-        '''启动观测'''
-        print('开始观测电脑使用行为...')
+        self.data_dir = Path(__file__).resolve().parent.parent / "data"
+        self.data_dir.mkdir(exist_ok=True)
+
+    def start(self):
+        print("===== Airi — 观测模块已启动 =====")
+        print("正在观测应用切换、鼠标键盘输入，并每5分钟自动保存数据。")
+        print("按 Ctrl + C 可退出程序。\n")
+
+        self.start_app_monitor()
+        self.start_input_monitor()
+        self.start_auto_save()
+
+        # 主线程阻塞，保持运行
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\n退出中，正在保存剩余数据...")
+            self.save_data()
+            print("已安全退出。")
 
     def start_app_monitor(self):
         '''监控应用使用情况'''
@@ -39,7 +57,7 @@ class ComputerActivityMonitor:
                             self.last_app_switch_time = current_time
                             self.is_first_app = False
                         
-                        print(f"切换到：{active_window}")
+                        print(f"[切换应用] => {active_window}")
                     time.sleep(2) #每2秒检查一次
                 
                 except Exception as e:
@@ -98,16 +116,16 @@ class ComputerActivityMonitor:
                 time.sleep(300) # 每5分钟
                 self.save_data()
 
-        thread = threading.Thread(target=save_loop, daemon=True)
+        threading.Thread(target=save_loop, daemon=True).start()
 
     def save_data(self):
-        """保存数据到文件"""
+        '''保存数据到文件'''
         if self.activity_data:
             df = pd.DataFrame(self.activity_data)
             
             # 按日期保存到不同的文件
             today = datetime.now().strftime("%Y-%m-%d")
-            filename = f"computer_activity_{today}.csv"
+            filename = f"{self.data_dir}/computer_activity_{today}.csv"
             
             try:
                 # 如果文件已存在，追加数据
@@ -120,3 +138,7 @@ class ComputerActivityMonitor:
             
             print(f"数据已保存到 {filename}, 记录数: {len(df)}")
             self.activity_data = []  # 清空已保存的数据
+
+if __name__ == "__main__":
+    monitor = ComputerActivityMonitor()
+    monitor.start()

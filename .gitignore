@@ -215,5 +215,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# database folder
+# my data folder
 db_data/
+data/
