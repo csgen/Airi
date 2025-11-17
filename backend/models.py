@@ -15,9 +15,16 @@ class RawActivityLog(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
-    timestamp = Column(TIMESTAMP(timezone=True), nullable=False)
-    duration_seconds = Column(Integer, nullable=False)
+    # 事件发生时本地时间（带时区）
+    local_timestamp = Column(TIMESTAMP(timezone=True), nullable=False)
 
+    # UTC 时间（统一用于排序/分析）
+    timestamp_utc = Column(TIMESTAMP(timezone=True), nullable=False)
+
+    # 当时的本地时区（时区偏移，例如 "+08:00" 或 "-05:00"）
+    timezone_name = Column(String(50), nullable=False)
+
+    duration_seconds = Column(Integer, nullable=False)
     application = Column(Text, nullable=False)
     activity_type = Column(String(50), nullable=False)
     input_count = Column(Integer, nullable=False)
@@ -25,7 +32,7 @@ class RawActivityLog(Base):
     imported_at = Column(TIMESTAMP(timezone=True))
 
     __table_args__ = (
-        UniqueConstraint("timestamp", "application", "duration_seconds",
+        UniqueConstraint("local_timestamp", "application", "duration_seconds",
                          name="uq_raw_log_unique_record"),
     )
 

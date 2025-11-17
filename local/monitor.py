@@ -8,6 +8,7 @@ import threading
 from collections import defaultdict
 import win32gui
 from pathlib import Path
+import tzlocal
 
 # 工作相关
 work_keywords = ['visual studio', 'pycharm', 'vscode', 'intellij', 'sublime', 'docker',
@@ -57,7 +58,8 @@ class ComputerActivityMonitor:
             while True:
                 try:
                     active_window = self.get_active_window()
-                    current_time = datetime.now()
+                    local_tz = tzlocal.get_localzone()
+                    current_time = datetime.now(local_tz)
 
                     if active_window and active_window != self.current_app:
                         if self.current_app:

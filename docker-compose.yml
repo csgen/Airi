@@ -21,6 +21,7 @@ services:
     environment:
       APP_DATABASE_URL: postgresql://${APP_DB_USER}:${APP_DB_PASSWORD}@${APP_DB_HOST}:${APP_DB_PORT}/${APP_DB_NAME}
       APP_DATABASE_ASYNC_URL: postgresql+asyncpg://${APP_DB_USER}:${APP_DB_PASSWORD}@${APP_DB_HOST}:${APP_DB_PORT}/${APP_DB_NAME}
+      APP_ENV: "production"
     ports:
       - "8000:8000"
     volumes:

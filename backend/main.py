@@ -5,15 +5,18 @@ from contextlib import asynccontextmanager
 import asyncio
 from models import Base
 from db import engine
+from uploader import upload_all_csv, schedule_daily_upload
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    APP_ENV = os.getenv("APP_ENV", "development")
+    print(f"🚀 Backend starting, ENV = {APP_ENV}")
     # Startup
     # 初始化数据库
     for i in range(10):  # 最多尝试 10 次，每次间隔 1 秒
         try:
             async with engine.begin() as conn:
-                print("👉 Connected to DB, creating tables...")
+                print("====Connected to DB, creating tables...====")
                 await conn.run_sync(Base.metadata.create_all)
                 print("✅ Database initialized.")
                 break
@@ -23,6 +26,19 @@ async def lifespan(app: FastAPI):
     else:
         print("❌ Failed to connect to DB after 10 attempts")
         raise
+
+    if APP_ENV == "production":
+        # 1. 容器启动后立即上传一次
+        print("Running immediate upload (production mode)...")
+        asyncio.create_task(upload_all_csv())
+
+        # 2. 同时启动定时调度任务
+        print("Starting daily upload scheduler...")
+        asyncio.create_task(schedule_daily_upload(0, 0))
+
+    else:
+        # 开发模式下，不自动上传
+        print("Development mode: uploader auto-run disabled.")
 
     yield
 
