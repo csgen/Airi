@@ -9,6 +9,18 @@ from collections import defaultdict
 import win32gui
 from pathlib import Path
 
+# 工作相关
+work_keywords = ['visual studio', 'pycharm', 'vscode', 'intellij', 'sublime', 
+                'terminal', 'cmd', 'powershell', 'outlook', 'slack', 'teams', 'word', 'excel', 'powerpoint',
+                'deepseek', 'chatgpt', 'gemini', 'github', 'gmail', 'mail', 'linkedIn']
+# 创作相关
+creative_keywords = ['photoshop', 'premiere', 'figma', 'blender', 'sketch', 'wikipedia', '公众号', '微信公众平台', '维基百科']
+# 娱乐相关  
+entertainment_keywords = ['chrome', 'firefox', 'safari', 'edge', 'spotify', 
+                        'netflix', 'youtube', 'steam', 'game', 'KPL', 'bilibili']
+# 社交相关
+social_keywords = ['wechat', 'wexin', 'whatsapp', 'discord', 'twitter', 'facebook']
+
 class ComputerActivityMonitor:
     def __init__(self):
         self.activity_data = []
@@ -74,16 +86,30 @@ class ComputerActivityMonitor:
         window_title = win32gui.GetWindowText(window)
         return window_title if window_title else 'Unknown'
     
+    def categorize_application(self, app_name):
+        app_lower = app_name.lower()
+        if any(keyword in app_lower for keyword in work_keywords):
+            return 'work'
+        elif any(keyword in app_lower for keyword in creative_keywords):
+            return 'creative'
+        elif any(keyword in app_lower for keyword in entertainment_keywords):
+            return 'entertainment'
+        elif any(keyword in app_lower for keyword in social_keywords):
+            return 'social'
+        else:
+            return 'other'
+
     def record_app_usage(self, app_name, end_time):
         '''记录应用使用情况'''
         if self.last_app_switch_time is not None:
             duration = (end_time - self.last_app_switch_time).total_seconds()
             if duration > 1:
+                activity_type = self.categorize_application(app_name)
                 record = {
                     'timestamp': self.last_app_switch_time.isoformat(),
                     'duration_seconds': duration,
                     'application': app_name,
-                    'activity_type': 'application_usage',
+                    'activity_type': activity_type,
                     'input_count': self.input_count
                 }
                 
@@ -139,6 +165,20 @@ class ComputerActivityMonitor:
             print(f"数据已保存到 {filename}, 记录数: {len(df)}")
             self.activity_data = []  # 清空已保存的数据
 
+    # 处理旧文件
+    def process_csv_file(self, file_path):
+        try:
+            df = pd.read_csv(file_path)
+            print(f"正在处理文件: {file_path}")
+            print(f"原始数据行数: {len(df)}")
+            df['activity_type'] = df['application'].apply(self.categorize_application)
+            df.to_csv(file_path, index=False)
+        except Exception as e:
+            print(f"处理文件 {file_path} 时出错: {e}")
+            return None
+
 if __name__ == "__main__":
     monitor = ComputerActivityMonitor()
+    # monitor.process_csv_file('C:\csg_Folder\MyProject\Airi\data\computer_activity_2025-11-17.csv')
     monitor.start()
+    
