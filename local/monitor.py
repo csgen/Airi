@@ -10,7 +10,7 @@ import win32gui
 from pathlib import Path
 
 # 工作相关
-work_keywords = ['visual studio', 'pycharm', 'vscode', 'intellij', 'sublime', 
+work_keywords = ['visual studio', 'pycharm', 'vscode', 'intellij', 'sublime', 'docker',
                 'terminal', 'cmd', 'powershell', 'outlook', 'slack', 'teams', 'word', 'excel', 'powerpoint',
                 'deepseek', 'chatgpt', 'gemini', 'github', 'gmail', 'mail', 'linkedIn']
 # 创作相关
@@ -179,6 +179,5 @@ class ComputerActivityMonitor:
 
 if __name__ == "__main__":
     monitor = ComputerActivityMonitor()
-    # monitor.process_csv_file('C:\csg_Folder\MyProject\Airi\data\computer_activity_2025-11-17.csv')
     monitor.start()
     

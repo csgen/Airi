@@ -2,6 +2,7 @@ from sqlalchemy import (
     Column, Integer, String, Text, Float, Date, TIMESTAMP, ForeignKey
 )
 from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy import UniqueConstraint
 
 Base = declarative_base()
 
@@ -22,6 +23,11 @@ class RawActivityLog(Base):
     input_count = Column(Integer, nullable=False)
 
     imported_at = Column(TIMESTAMP(timezone=True))
+
+    __table_args__ = (
+        UniqueConstraint("timestamp", "application", "duration_seconds",
+                         name="uq_raw_log_unique_record"),
+    )
 
 
 # --------------------------------------------------------
