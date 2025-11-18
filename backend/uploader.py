@@ -3,11 +3,17 @@ import asyncio
 import os
 import pandas as pd
 import re
+import logging
 from datetime import datetime, timedelta
 from db import AsyncSessionLocal
 from models import RawActivityLog
+from loghandler import set_log_handler
 
 DATA_DIR = "/app/data"
+
+logger = logging.getLogger("airi.uploader")
+logger.setLevel(logging.DEBUG)
+logger = set_log_handler(logger, logging.DEBUG)
 
 # 把 timedelta 转成 +08:00 这样可读的偏移字符串
 def format_offset(offset):
@@ -51,25 +57,25 @@ async def upload_record(row, max_retries=3):
                 session.add(log)
                 await session.commit()
 
-                print(f"✅ Uploaded: {local_ts.isoformat()}")
+                # print(f"✅ Uploaded: {local_ts.isoformat()}")
                 return True
 
         except IntegrityError:
             # 已存在，跳过
-            print(f"⚠️ Duplicate skipped: {local_ts.isoformat()}")
-            return True  # 也算成功，不需要下次再上传
+            # print(f"⚠️ Duplicate skipped: {local_ts.isoformat()}")
+            return False
 
         except OperationalError as e:
             # 数据库没开 / 网络错误
             attempt += 1
-            print(
+            logger.warning(
                 f"❌ DB connection failed（尝试 {attempt}/{max_retries}）：{e}\n"
                 f"⏳ Retrying in 10 seconds..."
             )
             await asyncio.sleep(10)
 
     # 三次失败 → 放弃本次，等下次定时任务再尝试
-    print(f"❗ Upload failed after {max_retries} retries. Will try again next scheduled upload.")
+    logger.error(f"❗ Upload failed after {max_retries} retries. Will try again next scheduled upload.")
     return False
 
 async def upload_csv_file(csv_path):
@@ -78,14 +84,17 @@ async def upload_csv_file(csv_path):
     - 失败不会中断
     - 已存在记录不会插入
     '''
-    print(f"Uploading file: {csv_path}")
+    logger.info(f"Uploading file: {csv_path}")
 
     df = pd.read_csv(csv_path, parse_dates=["timestamp"])
 
+    success_count = 0
     for _, row in df.iterrows():
-        await upload_record(row)
+        if await upload_record(row):
+            success_count += 1
 
-    print(f"File completed: {csv_path}")
+    if success_count > 0:
+        logger.info(f"File {csv_path} completed with {success_count} new records uploaded.")
 
 # 从文件名中提取 YYYY-MM-DD 日期并转换为 datetime 对象
 def extract_date(filename):
@@ -99,7 +108,7 @@ async def upload_all_csv():
     files = [f for f in os.listdir(DATA_DIR) if f.endswith(".csv")]
 
     if not files:
-        print("⚠️ No CSV files found.")
+        logger.warning("⚠️ No CSV files found.")
         return
     
     # 按日期排序（基于 YYYY-MM-DD）
@@ -109,7 +118,7 @@ async def upload_all_csv():
         path = os.path.join(DATA_DIR, f)
         await upload_csv_file(path)
 
-    print("All files uploaded!")
+    logger.info("All files uploaded!")
 
 async def schedule_daily_upload(hour=0, minute=0):
     while True:
@@ -120,7 +129,7 @@ async def schedule_daily_upload(hour=0, minute=0):
             target += timedelta(days=1)
 
         wait_sec = (target - now).total_seconds()
-        print(f"⏳ Next upload at {target}")
+        logger.info(f"⏳ Next upload at {target}")
 
         await asyncio.sleep(wait_sec)
         await upload_all_csv()
